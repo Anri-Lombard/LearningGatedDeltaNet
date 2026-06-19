@@ -10,6 +10,8 @@ The state update is a gated rank-1 correction:
 + \beta_t \left(v_t - \alpha_t S_{t-1} k_t\right) k_t^\top
 ```
 
+In one sentence: Gated DeltaNet keeps a compressed memory, reads what the memory currently returns for a key, computes the error against the desired value, then uses gates to control forgetting and correction strength.
+
 ## One memory example
 
 Let:
@@ -1145,6 +1147,427 @@ The selected slot does not move at all:
 5 \rightarrow 5
 ```
 
+## Worked example: compute the output
+
+Let:
+
+```math
+S_0 =
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix},
+\quad
+k =
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix},
+\quad
+v =
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix},
+\quad
+\alpha = 1,
+\quad
+\beta = 0.5
+```
+
+First compute the current read:
+
+```math
+S_0 k
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+5 \\
+0
+\end{bmatrix}
+```
+
+The target is:
+
+```math
+v =
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix}
+```
+
+So the error is:
+
+```math
+v - S_0 k
+=
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix}
+-
+\begin{bmatrix}
+5 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+```
+
+Apply $\beta = 0.5$:
+
+```math
+\beta(v - S_0 k)
+=
+0.5
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+```
+
+Write that correction at key $k$:
+
+```math
+\beta(v - S_0 k)k^\top
+=
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
+```
+
+So $k$ determines both where to check memory and where to apply the edit:
+
+```math
+S_0 k
+```
+
+checks what memory currently returns for that key, and:
+
+```math
+\beta(v - S_0 k)k^\top
+```
+
+writes the correction back into that same key direction.
+
+This also shows why the scale of $k$ matters. If $k$ is too large, then:
+
+```math
+S k
+```
+
+can become too large, and the correction:
+
+```math
+(v - S k)k^\top
+```
+
+can become too large too. That is why controls like normalization and gating are needed, so the key direction behaves stably.
+
+Since $\alpha = 1$, the updated memory is:
+
+```math
+S_1
+= S_0 + \beta(v - S_0 k)k^\top
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
++
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+Now compute the output by reading with $k$:
+
+```math
+y = S_1 k
+```
+
+So:
+
+```math
+y
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 \\
+0
+\end{bmatrix}
+```
+
+The output moved halfway from the old read to the target:
+
+```math
+\begin{bmatrix}
+5 \\
+0
+\end{bmatrix}
+\rightarrow
+\begin{bmatrix}
+6 \\
+0
+\end{bmatrix}
+```
+
+If we read with the other query:
+
+```math
+q =
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+```
+
+then:
+
+```math
+S_1 q
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\
+10
+\end{bmatrix}
+```
+
+So with $\alpha = 1$, the second memory slot is unchanged.
+
+Now suppose:
+
+```math
+\alpha = 0.8,
+\quad
+\beta = 0.5
+```
+
+The update is:
+
+```math
+S_1
+= \alpha S_0 + \beta(v - \alpha S_0 k)k^\top
+```
+
+First decay the memory:
+
+```math
+\alpha S_0
+=
+0.8
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
+=
+\begin{bmatrix}
+4 & 0 \\
+0 & 8
+\end{bmatrix}
+```
+
+Now read the selected key after decay:
+
+```math
+\alpha S_0 k
+=
+\begin{bmatrix}
+4 & 0 \\
+0 & 8
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+4 \\
+0
+\end{bmatrix}
+```
+
+The correction is:
+
+```math
+v - \alpha S_0 k
+=
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix}
+-
+\begin{bmatrix}
+4 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+3 \\
+0
+\end{bmatrix}
+```
+
+Apply $\beta = 0.5$:
+
+```math
+\beta(v - \alpha S_0 k)
+=
+0.5
+\begin{bmatrix}
+3 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1.5 \\
+0
+\end{bmatrix}
+```
+
+Write the correction:
+
+```math
+\beta(v - \alpha S_0 k)k^\top
+=
+\begin{bmatrix}
+1.5 \\
+0
+\end{bmatrix}
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1.5 & 0 \\
+0 & 0
+\end{bmatrix}
+```
+
+So:
+
+```math
+S_1
+=
+\begin{bmatrix}
+4 & 0 \\
+0 & 8
+\end{bmatrix}
++
+\begin{bmatrix}
+1.5 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+5.5 & 0 \\
+0 & 8
+\end{bmatrix}
+```
+
+Reading with $k$ gives:
+
+```math
+S_1 k
+=
+\begin{bmatrix}
+5.5 & 0 \\
+0 & 8
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+5.5 \\
+0
+\end{bmatrix}
+```
+
+Reading with $q$ gives:
+
+```math
+S_1 q
+=
+\begin{bmatrix}
+5.5 & 0 \\
+0 & 8
+\end{bmatrix}
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+=
+\begin{bmatrix}
+0 \\
+8
+\end{bmatrix}
+```
+
+So $\alpha = 0.8$ decays the unselected memory slot:
+
+```math
+\begin{bmatrix}
+0 \\
+10
+\end{bmatrix}
+\rightarrow
+\begin{bmatrix}
+0 \\
+8
+\end{bmatrix}
+```
+
 # Comparing Gated DeltaNet to a Transformer
 
 A Transformer keeps separate key and value vectors for many previous tokens.
@@ -1770,6 +2193,239 @@ S_{\text{new}}k_1
 ```
 
 So the delta rule corrected the current key, but damaged a similar key. That is the tradeoff: if keys overlap, the correction leaks back into nearby memories.
+
+Now suppose $\beta = 0.5$ instead of $\beta = 1$.
+
+The memory still currently reads $2$ from $k_2$:
+
+```math
+S k_2 = 2
+```
+
+The full correction would still be:
+
+```math
+50 - 2 = 48
+```
+
+But with $\beta = 0.5$, we only apply half of that correction:
+
+```math
+0.5(48) = 24
+```
+
+So the new memory is:
+
+```math
+S_{\text{new}}
+= 10k_1^\top + 24k_2^\top
+```
+
+Now read from $k_2$:
+
+```math
+S_{\text{new}}k_2
+= 10k_1^\top k_2 + 24k_2^\top k_2
+```
+
+So:
+
+```math
+S_{\text{new}}k_2
+= 10(0.2) + 24(1)
+= 2 + 24
+= 26
+```
+
+The read for $k_2$ moved toward $50$, but did not fully reach it:
+
+```math
+2 \rightarrow 26
+```
+
+Now read from $k_1$ again:
+
+```math
+S_{\text{new}}k_1
+= 10k_1^\top k_1 + 24k_2^\top k_1
+```
+
+So:
+
+```math
+S_{\text{new}}k_1
+= 10(1) + 24(0.2)
+= 10 + 4.8
+= 14.8
+```
+
+So $\beta = 0.5$ makes the current edit weaker, but also reduces the side effect:
+
+```math
+k_2: 2 \rightarrow 26
+```
+
+```math
+k_1: 10 \rightarrow 14.8
+```
+
+That is why $\beta$ matters. A larger $\beta$ fixes the current key more aggressively, but leaks more into similar keys. A smaller $\beta$ edits more gently, so the target key improves more slowly, but nearby memories are damaged less.
+
+Now bring back $\alpha$.
+
+Suppose the old memory is:
+
+```math
+S = 10k_1^\top
+```
+
+Before writing, apply a decay gate:
+
+```math
+\alpha = 0.8
+```
+
+The gated delta update is:
+
+```math
+S_{\text{new}}
+= \alpha S + \beta(v - \alpha S k)k^\top
+```
+
+So the old $k_1$ memory is first decayed:
+
+```math
+\alpha S
+= 0.8(10k_1^\top)
+= 8k_1^\top
+```
+
+Reading from $k_1$ after decay gives:
+
+```math
+\alpha S k_1
+= 8k_1^\top k_1
+= 8(1)
+= 8
+```
+
+So $\alpha$ turns the old memory:
+
+```math
+10 \rightarrow 8
+```
+
+If we now read from the similar key $k_2$, where $k_1^\top k_2 = 0.2$:
+
+```math
+\alpha S k_2
+= 8k_1^\top k_2
+= 8(0.2)
+= 1.6
+```
+
+So decay also reduces leakage:
+
+```math
+2 \rightarrow 1.6
+```
+
+If the target for $k_2$ is still $50$, the correction becomes:
+
+```math
+50 - 1.6 = 48.4
+```
+
+So $\alpha$ forgets old memory before the edit happens. It reduces stale information and leakage, but it also weakens useful old memories.
+
+With $\beta = 1$, the final memory after writing $k_2$ is:
+
+```math
+S_{\text{new}}
+= 8k_1^\top + 48.4k_2^\top
+```
+
+Now read from $k_1$ again:
+
+```math
+S_{\text{new}}k_1
+= 8k_1^\top k_1 + 48.4k_2^\top k_1
+```
+
+Since $k_1^\top k_1 = 1$ and $k_2^\top k_1 = 0.2$:
+
+```math
+S_{\text{new}}k_1
+= 8(1) + 48.4(0.2)
+= 8 + 9.68
+= 17.68
+```
+
+In the no-decay case, reading from $k_1$ became:
+
+```math
+19.6
+```
+
+With $\alpha = 0.8$, reading from $k_1$ becomes:
+
+```math
+17.68
+```
+
+So $\alpha = 0.8$ reduced the final corruption compared with no decay:
+
+```math
+19.6 \rightarrow 17.68
+```
+
+But it did that partly by weakening the original $k_1$ memory first:
+
+```math
+10 \rightarrow 8
+```
+
+The main intuition is:
+
+- $\alpha$ can reduce old memory before writing.
+- $\beta$ can reduce how aggressively the model writes the correction.
+- But if keys overlap, interference can still happen.
+
+The delta rule turns the write into a correction:
+
+```math
+\text{write correction}
+= \beta(v - \text{current read})
+```
+
+where:
+
+```math
+\text{current read} = S k
+```
+
+So:
+
+```math
+\text{write correction}
+= \beta(v - S k)
+```
+
+If the memory already retrieves the right value, then:
+
+```math
+S k \approx v
+```
+
+so:
+
+```math
+v - S k \approx 0
+```
+
+and the model writes almost nothing.
+
+The caveat is that this is not always a perfect replacement. If $\alpha < 1$, old memory is decayed before the write. If $\beta < 1$, the correction is only partially written. And if keys overlap, the correction for one key can interfere with nearby keys.
 
 # Comparing Gated DeltaNet to Mamba
 
