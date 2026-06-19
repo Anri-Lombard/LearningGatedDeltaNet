@@ -29,6 +29,23 @@ def gdn_step(S, k, v, q, alpha, beta):
     }
 
 
+def gdn_sequence(S, steps):
+    outputs = []
+
+    for step in steps:
+        y, S, trace = gdn_step(
+            S=S,
+            k=step["k"],
+            v=step["v"],
+            q=step["q"],
+            alpha=step["alpha"],
+            beta=step["beta"],
+        )
+        outputs.append(y)
+
+    return torch.stack(outputs), S
+
+
 S0 = torch.tensor([
     [5.0, 0.0],
     [0.0, 10.0],
@@ -50,3 +67,44 @@ print("error:", trace["error"])
 print("delta_S:\n", trace["delta_S"])
 print("S1:\n", S1)
 print("y:", y)
+
+print("\nRecurrent sequence demo")
+
+S = torch.zeros(2, 2)
+
+steps = [
+    {
+        "k": torch.tensor([1.0, 0.0]),
+        "v": torch.tensor([5.0, 0.0]),
+        "q": torch.tensor([1.0, 0.0]),
+        "alpha": 1.0,
+        "beta": 1.0,
+    },
+    {
+        "k": torch.tensor([0.0, 1.0]),
+        "v": torch.tensor([0.0, 10.0]),
+        "q": torch.tensor([0.0, 1.0]),
+        "alpha": 1.0,
+        "beta": 1.0,
+    },
+]
+
+outputs, S = gdn_sequence(S, steps)
+
+print("Final S:\n", S)
+print("Outputs:", outputs)
+
+expected_outputs = torch.tensor([
+    [5.0, 0.0],
+    [0.0, 10.0],
+])
+
+expected_S = torch.tensor([
+    [5.0, 0.0],
+    [0.0, 10.0],
+])
+
+assert torch.allclose(outputs, expected_outputs)
+assert torch.allclose(S, expected_S)
+
+print("Sequence checks passed.")
