@@ -2480,3 +2480,87 @@ The rough picture is:
 - Gated DeltaNet: compressed editable key-value memory.
 
 So Gated DeltaNet sits between Transformer and Mamba. It is compressed like Mamba, but its update has a key-value edit operation that feels closer to attention memory.
+
+# Architecture picture
+
+In a Transformer, each token embedding is projected into:
+
+```math
+q_t,\quad k_t,\quad v_t
+```
+
+Gated DeltaNet starts similarly, but adds gates:
+
+```math
+x_t
+\rightarrow
+q_t,\quad k_t,\quad v_t,\quad \alpha_t,\quad \beta_t
+```
+
+So compared with Transformer-style QKV, Gated DeltaNet adds:
+
+- $\alpha_t$: forget gate.
+- $\beta_t$: write-strength gate.
+
+The paper's idea is that gating handles memory erasure, while the delta rule handles targeted memory edits.
+
+At each token, the model has a recurrent memory:
+
+```math
+S_{t-1}
+```
+
+Then the token produces the pieces needed to read and edit that memory:
+
+```math
+x_t
+\rightarrow
+q_t,\quad k_t,\quad v_t,\quad \alpha_t,\quad \beta_t
+```
+
+First, read the current memory at $k_t$:
+
+```math
+\alpha_t S_{t-1} k_t
+```
+
+Then compute the error against the target value:
+
+```math
+v_t - \alpha_t S_{t-1} k_t
+```
+
+Then update the memory:
+
+```math
+S_t
+= \alpha_t S_{t-1}
++ \beta_t\left(v_t - \alpha_t S_{t-1} k_t\right)k_t^\top
+```
+
+Then produce the output by reading from compressed memory with $q_t$:
+
+```math
+y_t \approx S_t q_t
+```
+
+So the roles are:
+
+- $q_t$ reads from compressed memory.
+- $k_t$ identifies where to check memory and where to write the edit.
+- $v_t$ is the target value to store.
+- $S_t$ is the recurrent memory.
+- $\alpha_t$ controls forgetting.
+- $\beta_t$ controls correction strength.
+
+The architectural shift is:
+
+```text
+Transformer:
+Keep all previous K,V, then compare q_t to them.
+```
+
+```text
+Gated DeltaNet:
+Fold previous information into S_t, then read and edit that memory.
+```
