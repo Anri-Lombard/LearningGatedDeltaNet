@@ -1,3 +1,5 @@
+# Math intuition
+
 ## Core idea
 
 The state update is a gated rank-1 correction:
@@ -726,3 +728,1099 @@ So the useful picture is:
 - The delta term changes only what is needed to make the readout closer to $v$.
 
 That is why it behaves like an editable associative memory, not just a decaying hidden state.
+
+## Example 4: adding the update-strength knob
+
+Now keep the same memory and same target value, but turn down $\beta$:
+
+```math
+S =
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix},
+\quad
+k =
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix},
+\quad
+v =
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix},
+\quad
+\alpha = 1,
+\quad
+\beta = 0.5
+```
+
+The gated delta update is:
+
+```math
+S_{\text{new}}
+= \alpha S + \beta \left(v - \alpha S k\right) k^\top
+```
+
+Since $\alpha = 1$:
+
+```math
+S_{\text{new}}
+= S + 0.5\left(v - S k\right) k^\top
+```
+
+First read the current value at the selected key:
+
+```math
+S k
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+5 \\
+0
+\end{bmatrix}
+```
+
+The desired value is:
+
+```math
+v =
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix}
+```
+
+So the full correction would be:
+
+```math
+v - S k
+=
+\begin{bmatrix}
+7 \\
+0
+\end{bmatrix}
+-
+\begin{bmatrix}
+5 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+```
+
+But $\beta = 0.5$, so we only apply half of that correction:
+
+```math
+0.5(v - S k)
+=
+0.5
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+```
+
+Write that half-correction back to the selected key:
+
+```math
+0.5(v - S k)k^\top
+=
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
+```
+
+So:
+
+```math
+S_{\text{new}}
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
++
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+Reading with the same key now gives:
+
+```math
+S_{\text{new}}k
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 \\
+0
+\end{bmatrix}
+```
+
+So $\beta$ controls how strongly the model moves the selected memory toward the target:
+
+```math
+5 \rightarrow 6
+```
+
+instead of jumping all the way:
+
+```math
+5 \rightarrow 7
+```
+
+We can also see this in the erase/write form. Starting from:
+
+```math
+S_{\text{new}}
+= S + \beta(v - S k)k^\top
+```
+
+Expand:
+
+```math
+S_{\text{new}}
+= S - \beta S k k^\top + \beta v k^\top
+```
+
+Factor out $S$:
+
+```math
+S_{\text{new}}
+= S(I - \beta k k^\top) + \beta v k^\top
+```
+
+With $\beta = 0.5$:
+
+```math
+I - 0.5 k k^\top
+=
+\begin{bmatrix}
+1 & 0 \\
+0 & 1
+\end{bmatrix}
+-
+0.5
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+0.5 & 0 \\
+0 & 1
+\end{bmatrix}
+```
+
+The selected slot is only half-erased:
+
+```math
+S(I - 0.5 k k^\top)
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
+\begin{bmatrix}
+0.5 & 0 \\
+0 & 1
+\end{bmatrix}
+=
+\begin{bmatrix}
+2.5 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+And the new value is only half-written:
+
+```math
+0.5 v k^\top
+=
+0.5
+\begin{bmatrix}
+7 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+3.5 & 0 \\
+0 & 0
+\end{bmatrix}
+```
+
+Together:
+
+```math
+S_{\text{new}}
+=
+\begin{bmatrix}
+2.5 & 0 \\
+0 & 10
+\end{bmatrix}
++
+\begin{bmatrix}
+3.5 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+So with $\alpha = 1$ and $\beta = 0.5$, nothing globally decays. The unselected memory stays at $10$. Only the selected association is softly edited, moving halfway from the current value $5$ toward the desired value $7$.
+
+The scalar intuition is:
+
+```math
+\text{new value}
+= \text{old value} + \beta(\text{target value} - \text{old value})
+```
+
+For $\beta = 0.5$:
+
+```math
+6 = 5 + 0.5(7 - 5)
+```
+
+Now suppose $\beta = 0.25$ instead:
+
+```math
+\text{new value}
+= 5 + 0.25(7 - 5)
+= 5 + 0.25(2)
+= 5 + 0.5
+= 5.5
+```
+
+So the matrix update becomes:
+
+```math
+S_{\text{new}}
+= S + 0.25(v - S k)k^\top
+```
+
+We already know:
+
+```math
+v - S k
+=
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+```
+
+Apply only one quarter of that correction:
+
+```math
+0.25(v - S k)
+=
+0.25
+\begin{bmatrix}
+2 \\
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+0.5 \\
+0
+\end{bmatrix}
+```
+
+Write it back to the selected key:
+
+```math
+0.25(v - S k)k^\top
+=
+\begin{bmatrix}
+0.5 \\
+0
+\end{bmatrix}
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+0.5 & 0 \\
+0 & 0
+\end{bmatrix}
+```
+
+So:
+
+```math
+S_{\text{new}}
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
++
+\begin{bmatrix}
+0.5 & 0 \\
+0 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+5.5 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+With $\beta = 0.25$, the selected memory moves one quarter of the way from $5$ to $7$:
+
+```math
+5 \rightarrow 5.5
+```
+
+If $\beta = 0$, the update applies none of the correction:
+
+```math
+\text{new value}
+= 5 + 0(7 - 5)
+= 5
+```
+
+So:
+
+```math
+S_{\text{new}}
+= S + 0(v - S k)k^\top
+= S
+=
+\begin{bmatrix}
+5 & 0 \\
+0 & 10
+\end{bmatrix}
+```
+
+The selected slot does not move at all:
+
+```math
+5 \rightarrow 5
+```
+
+# Comparing Gated DeltaNet to a Transformer
+
+A Transformer keeps separate key and value vectors for many previous tokens.
+
+For token $i$, it stores something like:
+
+```math
+k_i, v_i
+```
+
+Then at a later token $t$, the current query $q_t$ compares itself against the previous keys:
+
+```math
+q_t^\top k_1,\quad q_t^\top k_2,\quad \ldots,\quad q_t^\top k_{t-1}
+```
+
+So the Transformer is always asking:
+
+```text
+Which previous token should I attend to?
+```
+
+It has explicit memory of the previous tokens. The upside is that it can point back to a specific old token very directly. The downside is that the key/value cache grows with sequence length.
+
+Gated DeltaNet does something different. It keeps one compressed memory matrix:
+
+```math
+S_t
+```
+
+Past tokens are folded into this matrix through updates like:
+
+```math
+S_t
+= \alpha_t S_{t-1}
++ \beta_t \left(v_t - \alpha_t S_{t-1} k_t\right) k_t^\top
+```
+
+So at token $t$, it is not keeping every old token as a separate key/value pair. Instead, the current key or query retrieves from the learned memory matrix:
+
+```math
+S_t q_t
+```
+
+The question becomes:
+
+```text
+What does my current key/query retrieve from the memory matrix?
+```
+
+So the tradeoff is:
+
+- Transformer: explicit memory of past tokens.
+- Gated DeltaNet: compressed editable memory.
+
+The Transformer can retrieve an old token directly, but its cache grows with sequence length.
+
+Gated DeltaNet is cheaper for long context because the memory size can stay fixed, but old information can interfere or get compressed together inside $S_t$.
+
+## Transformer weighted read
+
+More specifically, a Transformer output is a weighted sum of previous value vectors:
+
+```math
+\text{output}
+= \sum_i \operatorname{softmax}(q^\top k_i)v_i
+```
+
+Suppose the previous values are scalar values:
+
+```math
+v_1 = 10,
+\quad
+v_2 = 50,
+\quad
+v_3 = 20
+```
+
+And suppose the attention weights are:
+
+```math
+\begin{bmatrix}
+0.1 & 0.8 & 0.1
+\end{bmatrix}
+```
+
+Then the Transformer output is:
+
+```math
+\text{output}
+= 0.1(10) + 0.8(50) + 0.1(20)
+```
+
+So:
+
+```math
+\text{output}
+= 1 + 40 + 2
+= 43
+```
+
+The important thing is that the Transformer still has the separate values available:
+
+```math
+10,\quad 50,\quad 20
+```
+
+The attention weights decide how much to read from each previous token.
+
+Gated DeltaNet is closer to:
+
+```math
+\text{output} \approx S_t q_t
+```
+
+It does not keep asking for a weighted mixture over explicit old tokens. The old tokens have already been folded into $S_t$. The current query/key reads whatever the compressed memory matrix returns.
+
+## Why compressed memory can interfere
+
+Use a scalar-value version of the memory, where $S$ is a row vector and the keys are column vectors. Reading is:
+
+```math
+\text{read}(k) = S k
+```
+
+Start with:
+
+```math
+S_0 =
+\begin{bmatrix}
+0 &
+0
+\end{bmatrix}
+```
+
+Store the first key-value pair:
+
+```math
+k_1 =
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix},
+\quad
+v_1 = 10
+```
+
+With $\alpha = 1$ and $\beta = 1$, the scalar-value delta update is:
+
+```math
+S_{\text{new}}
+= S + (v - S k)k^\top
+```
+
+The current read is:
+
+```math
+S_0 k_1
+=
+\begin{bmatrix}
+0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+= 0
+```
+
+So the correction is:
+
+```math
+v_1 - S_0 k_1 = 10 - 0 = 10
+```
+
+Write it into the memory:
+
+```math
+S_1
+= S_0 + 10k_1^\top
+=
+\begin{bmatrix}
+0 &
+0
+\end{bmatrix}
++
+10
+\begin{bmatrix}
+1 &
+0
+\end{bmatrix}
+=
+\begin{bmatrix}
+10 &
+0
+\end{bmatrix}
+```
+
+Now store a second key-value pair:
+
+```math
+k_2 =
+\begin{bmatrix}
+1 \\
+1
+\end{bmatrix},
+\quad
+v_2 = 50
+```
+
+Before writing, read what memory already returns for $k_2$:
+
+```math
+S_1 k_2
+=
+\begin{bmatrix}
+10 & 0
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1
+\end{bmatrix}
+= 10
+```
+
+So the correction is:
+
+```math
+v_2 - S_1 k_2 = 50 - 10 = 40
+```
+
+Write that correction in the $k_2^\top$ direction:
+
+```math
+S_2
+= S_1 + 40k_2^\top
+=
+\begin{bmatrix}
+10 &
+0
+\end{bmatrix}
++
+40
+\begin{bmatrix}
+1 &
+1
+\end{bmatrix}
+=
+\begin{bmatrix}
+50 &
+40
+\end{bmatrix}
+```
+
+Now read the first key again:
+
+```math
+S_2 k_1
+=
+\begin{bmatrix}
+50 & 40
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+= 50
+```
+
+The first value used to read as $10$, but now it reads as $50$.
+
+That is interference. The second key was not separate from the first key. Since:
+
+```math
+k_1^\top k_2
+=
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+1
+\end{bmatrix}
+= 1
+```
+
+the second update also changed the direction used by the first key.
+
+In a Transformer, $v_1 = 10$ and $v_2 = 50$ are still separate cached values. In Gated DeltaNet, both writes are folded into the same compressed memory, so overlapping keys can collide.
+
+The property we want is orthogonal keys:
+
+```math
+k_1^\top k_2 = 0
+```
+
+Usually we also want normalized keys, so each key has length $1$:
+
+```math
+\lVert k_i \rVert = 1
+```
+
+For example:
+
+```math
+k_1 =
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix},
+\quad
+k_2 =
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+```
+
+Then:
+
+```math
+k_1^\top k_2
+=
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+= 0
+```
+
+If one key is written, it does not activate the other key. So Gated DeltaNet works best when keys are separate. If keys overlap, memories can interfere.
+
+Now redo the same two writes with orthogonal keys.
+
+Start with:
+
+```math
+S_0 =
+\begin{bmatrix}
+0 & 0
+\end{bmatrix}
+```
+
+Write the first value:
+
+```math
+k_1 =
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix},
+\quad
+v_1 = 10
+```
+
+The current read is:
+
+```math
+S_0 k_1
+=
+\begin{bmatrix}
+0 & 0
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+= 0
+```
+
+So the correction is:
+
+```math
+v_1 - S_0 k_1 = 10 - 0 = 10
+```
+
+Write it:
+
+```math
+S_1
+= S_0 + 10k_1^\top
+=
+\begin{bmatrix}
+0 & 0
+\end{bmatrix}
++
+10
+\begin{bmatrix}
+1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+10 & 0
+\end{bmatrix}
+```
+
+Now write the second value with the orthogonal key:
+
+```math
+k_2 =
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix},
+\quad
+v_2 = 50
+```
+
+Before writing, read what memory returns for $k_2$:
+
+```math
+S_1 k_2
+=
+\begin{bmatrix}
+10 & 0
+\end{bmatrix}
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+= 0
+```
+
+The first write does not show up when reading $k_2$, because:
+
+```math
+k_1^\top k_2 = 0
+```
+
+So the correction is:
+
+```math
+v_2 - S_1 k_2 = 50 - 0 = 50
+```
+
+Write it:
+
+```math
+S_2
+= S_1 + 50k_2^\top
+=
+\begin{bmatrix}
+10 & 0
+\end{bmatrix}
++
+50
+\begin{bmatrix}
+0 & 1
+\end{bmatrix}
+=
+\begin{bmatrix}
+10 & 50
+\end{bmatrix}
+```
+
+Now read the first key again:
+
+```math
+S_2 k_1
+=
+\begin{bmatrix}
+10 & 50
+\end{bmatrix}
+\begin{bmatrix}
+1 \\
+0
+\end{bmatrix}
+= 10
+```
+
+And read the second key:
+
+```math
+S_2 k_2
+=
+\begin{bmatrix}
+10 & 50
+\end{bmatrix}
+\begin{bmatrix}
+0 \\
+1
+\end{bmatrix}
+= 50
+```
+
+So with orthogonal normalized keys, both memories stay clean:
+
+```math
+k_1 \rightarrow 10,
+\quad
+k_2 \rightarrow 50
+```
+
+In a real language model with thousands of tokens, keys are only approximately separate. That means Gated DeltaNet memory is always a bit lossy:
+
+```math
+\text{read from } k_2
+\approx
+\text{desired value}
++ \text{leakage from similar keys}
+```
+
+That leakage is the price of compression.
+
+The comparison becomes:
+
+| Model | Memory | Retrieval issue |
+| --- | --- | --- |
+| Transformer | Separate past $K,V$ vectors | Expensive, but direct |
+| Mamba | Recurrent hidden state | No explicit key-value lookup |
+| Gated DeltaNet | Compressed associative memory $S$ | Similar keys can interfere |
+
+Gated DeltaNet tries to manage this with:
+
+- $\alpha$: forget old state memory.
+- $\beta$: control how aggressively to update a key-value association.
+
+Now suppose the keys are normalized but not perfectly orthogonal:
+
+```math
+k_1^\top k_2 = 0.2
+```
+
+And suppose we already stored:
+
+```math
+k_1 \rightarrow 10
+```
+
+That means:
+
+```math
+S = 10k_1^\top
+```
+
+Now read from $k_2$:
+
+```math
+S k_2
+= 10k_1^\top k_2
+```
+
+Since $k_1^\top k_2 = 0.2$:
+
+```math
+S k_2
+= 10(0.2)
+= 2
+```
+
+So even before writing anything to $k_2$, the memory already returns $2$ there.
+
+That is leakage from the similar key:
+
+```math
+k_2 \text{ reads } 2 \text{ because it partially overlaps with } k_1
+```
+
+If the target for $k_2$ is $50$, the correction is not $50$. It is:
+
+```math
+50 - 2 = 48
+```
+
+The model only writes the missing part, because the memory already predicts $2$ at that key. This is useful, but also risky: similar keys share memory.
+
+After the correction, the new memory is:
+
+```math
+S_{\text{new}}
+= 10k_1^\top + 48k_2^\top
+```
+
+Now read from $k_2$:
+
+```math
+S_{\text{new}}k_2
+= 10k_1^\top k_2 + 48k_2^\top k_2
+```
+
+Because the keys are normalized:
+
+```math
+k_2^\top k_2 = 1
+```
+
+So:
+
+```math
+S_{\text{new}}k_2
+= 10(0.2) + 48(1)
+= 2 + 48
+= 50
+```
+
+The delta rule fixed the read for $k_2$.
+
+But now read from $k_1$ again:
+
+```math
+S_{\text{new}}k_1
+= 10k_1^\top k_1 + 48k_2^\top k_1
+```
+
+Since:
+
+```math
+k_1^\top k_1 = 1,
+\quad
+k_2^\top k_1 = 0.2
+```
+
+we get:
+
+```math
+S_{\text{new}}k_1
+= 10(1) + 48(0.2)
+= 10 + 9.6
+= 19.6
+```
+
+So the delta rule corrected the current key, but damaged a similar key. That is the tradeoff: if keys overlap, the correction leaks back into nearby memories.
+
+# Comparing Gated DeltaNet to Mamba
+
+A simplified Mamba-style recurrence looks like:
+
+```math
+h_t = A_t h_{t-1} + B_t x_t
+```
+
+Then the output is read from the hidden state:
+
+```math
+y_t = C_t h_t
+```
+
+So Mamba also keeps a compressed state instead of storing every previous token separately.
+
+But the update is a state-space recurrence. It says:
+
+```text
+How should I update my running state?
+```
+
+Gated DeltaNet has a different flavor. Its update is more like:
+
+```math
+S_t
+= \text{old memory}
++ \text{key-specific correction}
+```
+
+More explicitly:
+
+```math
+S_t
+= \alpha_t S_{t-1}
++ \beta_t \left(v_t - \alpha_t S_{t-1} k_t\right) k_t^\top
+```
+
+That means it reads what is currently stored at key $k_t$, compares it to the target value $v_t$, and edits the memory matrix using the correction.
+
+So Gated DeltaNet is asking:
+
+```text
+How should I edit this key-value memory?
+```
+
+The rough picture is:
+
+- Transformer: explicit key/value memory for previous tokens.
+- Mamba: compressed running hidden state.
+- Gated DeltaNet: compressed editable key-value memory.
+
+So Gated DeltaNet sits between Transformer and Mamba. It is compressed like Mamba, but its update has a key-value edit operation that feels closer to attention memory.
